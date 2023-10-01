@@ -48,6 +48,7 @@ static struct file_operations chardev_fops = {
 
 static int __init chardev_init(void)
 {
+	// 申请char device major号
 	major = register_chrdev(0, DEVICE_NAME, &chardev_fops);
 
 	if (major < 0) {
@@ -57,6 +58,7 @@ static int __init chardev_init(void)
 
 	pr_info("I was assigned major number %d.\n", major);
 
+	// 创建class
 	cls = class_create(THIS_MODULE, DEVICE_NAME);
 	device_create(cls, NULL, MKDEV(major, 0), NULL, DEVICE_NAME);
 
@@ -77,7 +79,7 @@ static int device_open(struct inode *inode, struct file *file)
 	static int counter = 0;
 
 	if (atomic_cmpxchg(&already_open, CDEV_NOT_USED, CDEV_EXCLUSIVE_OPEN))
-	    return -EBUSY;
+		return -EBUSY;
 
 	sprintf(msg, "I already told you %d times Hello world!\n", counter++);
 	try_module_get(THIS_MODULE);
@@ -94,6 +96,9 @@ static int device_release(struct inode *inode, struct file *file)
 	return SUCCESS;
 }
 
+/*
+ * 读取kernel space -> user space
+ */
 static ssize_t device_read(struct file *flip, char __user *buffer,
 			   size_t length, loff_t *offset)
 {
@@ -118,6 +123,9 @@ static ssize_t device_read(struct file *flip, char __user *buffer,
 	return bytes_read;
 }
 
+/*
+ * 将数据从 kernel space -> user space
+ */
 static ssize_t device_write(struct file *flip, const char __user *buffer,
 			    size_t length, loff_t *offset)
 {
