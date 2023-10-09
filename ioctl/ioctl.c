@@ -4,6 +4,14 @@
 
 #include "ioctl.h"
 
+#include <linux/cdev.h>
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/ioctl.h>
+#include <linux/slab.h>
+#include <linux/module.h>
+#include <linux/uaccess.h>
+
 struct ioctl_arg {
 	unsigned int val;
 };
@@ -21,13 +29,15 @@ struct ioctl_arg {
 static unsigned int test_ioctl_major = 0;
 static unsigned int num_of_dev = 1;
 static struct cdev test_ioctl_cdev;
+static int ioctl_num = 0;
 
 struct test_ioctl_data {
 	unsigned char val;
-	rwlock_t lock;		//	读写锁
+	rwlock_t lock; //	读写锁
 };
 
-static long test_ioctl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static long test_ioctl_ioctl(struct file *filp, unsigned int cmd,
+			     unsigned long arg)
 {
 	struct test_ioctl_data *ioctl_data = filp->private_data;
 	int retval = 0;
@@ -37,7 +47,7 @@ static long test_ioctl_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 
 	switch (cmd) {
 	case IOCTL_VALSET:
-		if (copy_from_user(&data, (int __user *)arg), sizeof(data)) {
+		if (copy_from_user(&data, (int __user *)arg, sizeof(data))) {
 			retval = -EFAULT;
 			goto done;
 		}
@@ -99,7 +109,6 @@ static ssize_t test_ioctl_read(struct file *filp, char __user *buf,
 
 out:
 	return retval;
-
 }
 
 static int test_ioctl_close(struct inode *inode, struct file *filp)
@@ -146,7 +155,7 @@ static int __init ioctl_init(void)
 	int cdev_ret = -1;
 
 	// 给dev申请major
-	alloc_ret = alloc_chrdev_region(&dev, 0, &num_of_dev, DRIVER_NAME);
+	alloc_ret = alloc_chrdev_region(&dev, 0, num_of_dev, DRIVER_NAME);
 	if (alloc_ret)
 		goto error;
 
